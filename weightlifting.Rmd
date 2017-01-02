@@ -1,0 +1,105 @@
+---
+title: "WeightLifting"
+author: "Wellnhofer, Ernst"
+date: "2 January 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+```
+
+## Summary
+Quality of weight-lifting was asessessed by a competent trainer.    
+The problem was to predict the judgement of the trainer from sensor data.    
+Raw measurements were simultaneous measurements magnetometer, accelerometer   and gyroscope data from belt, arm, glove and dumbbell.  
+Data from sequential measurements were averaged using a sliding window  
+(see article below). Calculated data were yaw, pitch ann roll.  
+Usind a random forrest with ten-fold cross-validation we achieved good accuracy (0.9992) in the training data set.   
+Prediction was performed in the test data.  
+
+## Loading data
+The data are provided by courtesy of:
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. 
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+fileUrltraining<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+fileUrltesting<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileUrltraining,destfile="C:/Users/ernst/Documents/R/training.csv")
+download.file(fileUrltesting,destfile="C:/Users/ernst/Documents/R/testing.csv")
+train<-read.csv("training.csv")
+test<-read.csv("testing.csv")
+```
+##Loading Libraries 
+Libraries for parallel computing and modelling are loaded
+```{r}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+##loading libraries
+library(parallel)
+library(doParallel)
+library(caret)
+library(klaR)
+library(fscaret)
+library(plyr)
+library(splines)
+library(gbm)
+```
+## Settings
+Settings for parallel computing and cross validation are set.
+Ten-fold cross-validation was chosen as alternative for bootstrap in order to trade of between robustness of the model and computational efficiency.
+Seed is set to ensure reproducibility
+```{r}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+## setting multicore options
+cluster<-makeCluster(detectCores()-1)
+registerDoParallel(cluster)
+fitControl<-trainControl(method="cv",number=10,allowParallel=TRUE)
+set.seed(34563)
+```
+## Feature selection
+Inspect data. Incomplete columns that are missing in the test data set and identifier columns are removed from test and train data in an identical way.
+Since data in the test set only contain data with new_interval =no the train data are subsetted and the column is removed.
+```{r}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+head(test,2)
+str(test)
+head(train,2)
+str(train)
+## removing useless/queer data
+testt<-test[,c(3:11,37:49,60:68,84:86,113:124,151:160)]
+traint<-train[,c(3:11,37:49,60:68,84:86,113:124,151:160)]
+Subset_new_interval_no<-subset(traint,traint$new_window =="no")
+Subset_new_interval_no<-Subset_new_interval_no[,-4]
+testt<-testt[,-4]
+```
+## Model choice
+A random forrest model is fitted in view of the deadline. as it is known to provide a good fit based on sparse assumptions even in data with unknown distribution and possibly non-linear dependencies. 
+Outcome is predicted for the quiz.
+```{r}
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
+## fitting model preparatory tasks settings for crossvalidation and calculation
+tr1_RF<-train(classe ~.,data=Subset_new_interval_no,method="rf")
+confusionMatrix.train(tr1_RF)
+summary(tr1_RF)
+outcome<-predict(tr1_RF, newdata=testt)
+##B A B A A E D B A A B C B A E E A B B B
+```
+## Results
+Accuracy (average) : 0.9992 in training set
+estimated error rate in training set 3000
+Confusion matrix in training data set
+         Reference
+Prediction    A    B    C    D    E
+         A 28.6  0.0  0.0  0.0  0.0
+         B  0.0 19.3  0.0  0.0  0.0
+         C  0.0  0.0 17.4  0.0  0.0
+         D  0.0  0.0  0.0 16.3  0.0
+         E  0.0  0.0  0.0  0.0 18.3
+         
+         Outcome in test data
+         B A B A A E D B A A B C B A E E A B B B
+                            
+
+
+
